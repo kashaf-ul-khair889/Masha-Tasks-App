@@ -1,0 +1,29 @@
+name: masha_tasks
+description: "Masha's Tasks - Flutter task manager with SQLite and local notifications."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  sqflite: ^2.4.1
+  path: ^1.9.0
+  path_provider: ^2.1.4
+  shared_preferences: ^2.3.3
+  flutter_local_notifications: ^19.0.0
+  timezone: any
+  pdf: ^3.11.1
+  share_plus: ^10.1.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
