@@ -14,9 +14,15 @@ A task management app built with Flutter and SQLite, with a Masha and the Bear t
 - SQLite database for storage
 
 ## How to run
-1. Install Flutter and Android Studio
-2. Run: flutter pub get
-3. Run: flutter run
+Android (phone):
+flutter pub get
+flutter run
+
+Chrome (web):
+flutter pub get
+flutter run -d chrome
+
+Note: On Android the app uses SQLite and phone notifications. In Chrome, SQLite is not supported, so tasks are saved in browser storage and reminders appear as browser notifications and in-app alerts with sound.
 
 ## APK
 Download: app-arm64-v8a-release.apk (in this repository)
