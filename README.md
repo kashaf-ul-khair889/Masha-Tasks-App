@@ -34,4 +34,8 @@ Download: app-arm64-v8a-release.apk (in this repository)
 4. Top right: share icon for export, gear icon for settings (theme and sound).
 
 ## Video demo
+#Android demo
 https://drive.google.com/file/d/1QE-fG8IY01Y1pO6It6-uTSe7vq-kGB1h/view?usp=drive_link
+
+#Chrome demo
+https://drive.google.com/file/d/1ulB6b1erb8iTDtnffroHAiDblmTQxS9A/view?usp=drive_link
