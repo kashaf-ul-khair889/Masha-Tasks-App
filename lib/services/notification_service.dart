@@ -1,8 +1,10 @@
 import 'dart:ui' show Color;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 import '../models/task.dart';
+import 'download_stub.dart' if (dart.library.js_interop) 'download_web.dart';
 
 /// Local notifications: instant "task added" alert + scheduled reminders.
 /// Notification id scheme per task:  base = taskId*100
@@ -28,6 +30,7 @@ class NotificationService {
   }
 
   static Future<void> init() async {
+    if (kIsWeb) return; // browsers: in-app alerts are used instead
     tzdata.initializeTimeZones();
     _setLocalZone();
     const android = AndroidInitializationSettings('@drawable/ic_stat');
@@ -54,6 +57,10 @@ class NotificationService {
       _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
   static Future<void> requestPermissions() async {
+    if (kIsWeb) {
+      requestWebNotifyPermission();
+      return;
+    }
     await _android?.requestNotificationsPermission();
     try {
       await _android?.requestExactAlarmsPermission();
@@ -76,8 +83,14 @@ class NotificationService {
         ),
       );
 
-  static Future<void> showNow(int id, String title, String body, String sound) =>
-      _plugin.show(id, title, body, _details(sound));
+  static Future<void> showNow(int id, String title, String body, String sound) async {
+    if (kIsWeb) {
+      webNotify(title, body);
+      playWebSound(sound);
+      return;
+    }
+    await _plugin.show(id, title, body, _details(sound));
+  }
 
   static Future<void> showAdded(Task t, String sound) =>
       showNow(t.id! * 100 + 99, '🍯 Task added!', '${t.title} — ${t.whenLabel}', sound);
@@ -107,7 +120,7 @@ class NotificationService {
   }
 
   static Future<void> schedule(Task t, String sound) async {
-    if (t.id == null) return;
+    if (kIsWeb || t.id == null) return;
     await cancelTask(t);
     if (!t.isRepeating && t.completed) return;
     final base = t.id! * 100;
@@ -142,7 +155,7 @@ class NotificationService {
   }
 
   static Future<void> cancelTask(Task t) async {
-    if (t.id == null) return;
+    if (kIsWeb || t.id == null) return;
     final base = t.id! * 100;
     for (var i = 0; i <= 7; i++) {
       await _plugin.cancel(base + i);

@@ -1,7 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/task.dart';
+import 'download_stub.dart' if (dart.library.js_interop) 'download_web.dart';
 
 /// CSV + PDF export. PDF is written by hand (no extra library needed).
 class ExportService {
@@ -24,14 +28,21 @@ class ExportService {
 
   static const _headers = ['Title', 'Description', 'Due', 'Repeat', 'Status', 'Progress'];
 
-  static Future<File> exportCsv(List<Task> tasks) async {
+  static String _csvString(List<Task> tasks) {
     final sb = StringBuffer()..writeln(_headers.join(','));
     for (final r in _rows(tasks)) {
       sb.writeln(r.map(_esc).join(','));
     }
+    return sb.toString();
+  }
+
+  static Uint8List _csvBytes(List<Task> tasks) =>
+      Uint8List.fromList(utf8.encode(_csvString(tasks)));
+
+  static Future<File> exportCsv(List<Task> tasks) async {
     final dir = await getTemporaryDirectory();
     final f = File('${dir.path}/tasks.csv');
-    return f.writeAsString(sb.toString());
+    return f.writeAsString(_csvString(tasks));
   }
 
   // ---------- minimal PDF writer ----------
@@ -99,7 +110,7 @@ class ExportService {
     return out.toString();
   }
 
-  static Future<File> exportPdf(List<Task> tasks) async {
+  static String _pdfString(List<Task> tasks) {
     final lines = <String>[];
     var i = 1;
     for (final r in _rows(tasks)) {
@@ -107,24 +118,44 @@ class ExportService {
       if (r[1].isNotEmpty) lines.add('      ${r[1].replaceAll('\n', ' ')}');
       i++;
     }
-    final pdf = _buildPdf('My Tasks', lines);
+    return _buildPdf('My Tasks', lines);
+  }
+
+  static Uint8List _pdfBytes(List<Task> tasks) => Uint8List.fromList(_pdfString(tasks).codeUnits);
+
+  static Future<File> exportPdf(List<Task> tasks) async {
     final dir = await getTemporaryDirectory();
     final f = File('${dir.path}/tasks.pdf');
-    return f.writeAsBytes(pdf.codeUnits);
+    return f.writeAsBytes(_pdfBytes(tasks));
   }
 
   static Future<void> shareCsv(List<Task> tasks) async {
+    if (kIsWeb) {
+      downloadBytes(_csvBytes(tasks), 'tasks.csv', 'text/csv');
+      return;
+    }
     final f = await exportCsv(tasks);
     await Share.shareXFiles([XFile(f.path, mimeType: 'text/csv')], subject: 'My Tasks (CSV)');
   }
 
   static Future<void> sharePdf(List<Task> tasks) async {
+    if (kIsWeb) {
+      downloadBytes(_pdfBytes(tasks), 'tasks.pdf', 'application/pdf');
+      return;
+    }
     final f = await exportPdf(tasks);
     await Share.shareXFiles([XFile(f.path, mimeType: 'application/pdf')], subject: 'My Tasks (PDF)');
   }
 
   /// Email: choose Gmail/Outlook in the share sheet; both files attached.
   static Future<void> shareEmail(List<Task> tasks) async {
+    if (kIsWeb) {
+      // Chrome: download both files, then open the mail app (attach the downloaded files).
+      downloadBytes(_csvBytes(tasks), 'tasks.csv', 'text/csv');
+      downloadBytes(_pdfBytes(tasks), 'tasks.pdf', 'application/pdf');
+      openMailto('My Task List', 'Hi, my task list is attached (tasks.csv and tasks.pdf from Downloads).');
+      return;
+    }
     final c = await exportCsv(tasks);
     final p = await exportPdf(tasks);
     await Share.shareXFiles(

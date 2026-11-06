@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../providers/app_state.dart';
+import '../services/notification_service.dart';
 
 /// Add / Edit task. Pass [task] to edit.
 class TaskFormScreen extends StatefulWidget {
@@ -73,6 +75,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   }
 
   Future<void> _save() async {
+    if (kIsWeb) NotificationService.requestPermissions(); // Chrome asks permission on click
     if (!_form.currentState!.validate()) return;
     if (_repeat == 'weekly' && _days.isEmpty) {
       ScaffoldMessenger.of(context)
@@ -98,6 +101,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       await widget.state.updateTask(task);
     } else {
       await widget.state.addTask(task);
+    }
+    if (!_editing && kIsWeb && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('🍯 Task added! ${task.title} — ${task.whenLabel}')));
     }
     if (mounted) Navigator.pop(context);
   }
@@ -144,7 +151,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              initialValue: _repeat,
+              value: _repeat,
               decoration: const InputDecoration(labelText: 'Repeat', prefixIcon: Icon(Icons.repeat)),
               items: const [
                 DropdownMenuItem(value: 'none', child: Text('Does not repeat')),
@@ -170,7 +177,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
               ),
             const SizedBox(height: 16),
             DropdownButtonFormField<int>(
-              initialValue: _before,
+              value: _before,
               decoration: const InputDecoration(
                   labelText: 'Extra reminder', prefixIcon: Icon(Icons.notifications_active)),
               items: const [

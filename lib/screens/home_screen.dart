@@ -1,8 +1,11 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../providers/app_state.dart';
 import '../services/export_service.dart';
 import '../services/notification_service.dart';
+import '../services/download_stub.dart' if (dart.library.js_interop) '../services/download_web.dart';
 import '../widgets/masha_header.dart';
 import '../widgets/task_card.dart';
 import 'settings_screen.dart';
@@ -18,6 +21,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _tab = 0;
+  Timer? _timer;
+  final Set<String> _fired = {};
   AppState get s => widget.state;
 
   @override
@@ -25,10 +30,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => NotificationService.requestPermissions());
+    if (kIsWeb) _timer = Timer.periodic(const Duration(seconds: 15), (_) => _checkDue());
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -36,6 +43,34 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState st) {
     if (st == AppLifecycleState.resumed) s.refresh(); // handles midnight reset
+  }
+
+  /// Chrome has no background notifications, so due tasks pop up as an in-app alert.
+  void _checkDue() {
+    final now = DateTime.now();
+    for (final t in s.tasks) {
+      if (t.isDoneOn(now) || !t.occursOn(now)) continue;
+      final due = DateTime(now.year, now.month, now.day, t.dueDate.hour, t.dueDate.minute);
+      final events = <String, DateTime>{'due': due};
+      if (t.reminderBefore > 0) events['pre'] = due.subtract(Duration(minutes: t.reminderBefore));
+      events.forEach((kind, at) {
+        final diff = now.difference(at);
+        final key = '${t.id}-${dateKey(now)}-$kind';
+        if (!diff.isNegative && diff.inSeconds < 120 && _fired.add(key)) {
+          final title = kind == 'due' ? '⏰ Task time!' : '🔔 Reminder: ${t.reminderBefore} min left';
+          webNotify(title, '${t.title} - ${t.whenLabel}');
+          playWebSound(s.sound);
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: Text(title),
+              content: Text('${t.title}\n${t.whenLabel}'),
+              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+            ),
+          );
+        }
+      });
+    }
   }
 
   void _openForm([Task? t]) => Navigator.push(
